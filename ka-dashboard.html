@@ -1,0 +1,414 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Amazon Kinesis Analytics Demo</title>
+
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+
+
+    <script type="text/javascript" src="https://sdk.amazonaws.com/js/aws-sdk-2.2.19.min.js" ></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.3.0/Chart.js" ></script>
+
+
+    <script type="text/javascript">
+
+        function init() {
+            // Initialize the Amazon Cognito credentials provider
+            AWS.config.region = "us-east-1"; // Region
+            AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+                IdentityPoolId: "us-east-1:9e0a5e0f-971b-45c2-b01a-0b5e6abae7d9"
+            });
+
+            AWS.config.credentials.get(function () {
+                console.log("updated aws config with web identity federation:\n", AWS.config.credentials);
+                AWS.config.identityId = AWS.config.credentials.identityId;
+                console.log("identityId:", AWS.config.identityId);
+            });
+
+            var dateTime = [];
+            var usersCounter = [];
+            var androidUsers = [];
+            var iOSUsers = [];
+            var windowsUsers = [];
+            var otherUsers = [];
+            var quadA = [];
+            var quadB = [];
+            var quadC = [];
+            var quadD = [];
+
+            var osUsageData = [];
+            var quadrantData = [];
+
+
+            //Chart.js code
+            var uniqueUsersChartConfig = {
+                type: "line",
+                data: {
+
+                    labels : dateTime,
+                    datasets : [
+                        {
+                            label: "Total Unique Users",
+                            borderColor : "rgba(151,187,205,1)",
+                            data : usersCounter,
+                            fill: false,
+                            pointRadius: 0
+                        }
+
+                    ]
+                },
+                options: {
+                    legend: {
+                        display: true,
+                        position: "top"
+
+                    },
+
+                    title: {
+                        display: true,
+                        text: "Unique Users",
+                        fontSize: 24
+                    },
+                    responsive: true,
+                    scales: {
+                        xAxes: [{
+                            display: true,
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Time (3 minutes)'
+                            },
+                            ticks: {
+                                suggestedMin: 180,
+                                suggestedMax: 180
+                            }
+
+                        }],
+                        yAxes: [{
+                            display: true,
+                            scaleLabel: {
+                                display: false
+                            },
+                            ticks: {
+                                min: 0,
+                                suggestedMax: 0,
+                                stepSize: 20
+                            }
+                        }]
+                    }
+                }
+            };
+
+            var osChartConfig = {
+                type: 'pie',
+                data: {
+                    labels: [
+                            "Android",
+                            "iOS",
+                            "Windows Phone",
+                            "Other"
+                    ],
+                    datasets: [
+                        {
+                            data: osUsageData,
+                            backgroundColor: [
+                                    "#deeaee",
+                                    "#b1cbbb",
+                                    "#eea29a",
+                                    "#c94c4c"
+                            ]
+                        }
+                    ]
+                },
+                options: {
+                    title: {
+                        display: true,
+                        text: "Operating System Usage",
+                        fontSize: 24
+                    },
+
+                    responsive: true
+                }
+            };
+
+
+            var quadrantChartConfig = {
+                type: "bar",
+                data: {
+                    labels: [
+                        "Fennekin",
+                        "Pikachu",
+                        "Pachirisu",
+                        "Bulbasaur"
+                    ],
+                    datasets: [
+                        {
+
+                            data: quadrantData,
+                            backgroundColor: [
+                                'rgba(255, 99, 132, 0.2)',
+                                'rgba(54, 162, 235, 0.2)',
+                                'rgba(255, 206, 86, 0.2)',
+                                'rgba(75, 192, 192, 0.2)'
+                            ],
+                            borderColor: [
+                                'rgba(255,99,132,1)',
+                                'rgba(54, 162, 235, 1)',
+                                'rgba(255, 206, 86, 1)',
+                                'rgba(75, 192, 192, 1)'
+                            ],
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: true,
+                        text: "Users by Quadrant",
+                        fontSize: 24
+                    },
+
+                    responsive: true,
+                    scales: {
+                        yAxes: [{
+                            display: true,
+                            scaleLabel: {
+                                display: false
+                            },
+                            ticks: {
+                                stepSize: 10,
+                                suggestedMin: 0,
+                                suggestedMax: 10
+
+                            }
+                        }]
+                    }
+                }
+            };
+
+
+
+
+            var ctx = document.getElementById("uniqueUsersCanvas").getContext("2d");
+            var uniqueUsersChart = new Chart(ctx, uniqueUsersChartConfig);
+
+            var osCtx = document.getElementById("osCanvas").getContext("2d");
+            var osChart = new Chart(osCtx, osChartConfig);
+
+
+            var quadCtx = document.getElementById("quadrantCanvas").getContext("2d");
+            var quadChart = new Chart(quadCtx, quadrantChartConfig);
+
+            var firstRecord = 0;
+            var lastRecord = 0;
+            var noNewRecordCount = 0;
+
+            var uniqueUserCount = 0,
+                    androidCount = 0,
+                    iosCount = 0,
+                    windowsCount = 0,
+                    otherCount = 0,
+                    quadACount = 0,
+                    quadBCount = 0,
+                    quadCCount = 0,
+                    quadDCount = 0;
+
+            function getLatestRecord(){
+
+                var params = {
+                    TableName: "user-quadrant-data",
+                    ConsistentRead: false,
+                    ScanIndexForward: false,
+                    KeyConditionExpression: 'dataType = :type',
+                    ExpressionAttributeValues: {
+                        ":type": "quadrantRollup"
+                    },
+                    Limit: 1
+                };
+
+                var docClient = new AWS.DynamoDB.DocumentClient();
+
+
+                docClient.query(params, function(err, data) {
+                    if (err) console.log(err);
+                    else {
+                        console.log(data);
+
+                        if(firstRecord == 0 && data.Items.length > 0) {
+                            //if this is the first record, we're just going to ignore it because it
+                            //was likely in the table from a while ago and the data isn't valid for the current time
+                            //we'll start buildng the chart with subsequent records.
+                            firstRecord = data.Items[0].windowtime;
+                            return;
+                        }
+
+                        if(data.Items.length > 0 && data.Items[0].windowtime > firstRecord) {
+                            if(data.Items[0].windowtime > lastRecord) {
+                                uniqueUserCount = data.Items[0].userCount;
+                                androidCount = data.Items[0].androidCount;
+                                iosCount = data.Items[0].iosCount;
+                                windowsCount = data.Items[0].windowsCount;
+                                otherCount = data.Items[0].otherOSCount;
+                                quadACount = data.Items[0].quadrantA;
+                                quadBCount = data.Items[0].quadrantB;
+                                quadCCount = data.Items[0].quadrantC;
+                                quadDCount = data.Items[0].quadrantD;
+
+                                osUsageData[0] = androidCount;
+                                osUsageData[1] = iosCount;
+                                osUsageData[2] = windowsCount;
+                                osUsageData[3] = otherCount;
+
+
+                                quadrantData[0] = quadACount;
+                                quadrantData[1] = quadBCount;
+                                quadrantData[2] = quadCCount;
+                                quadrantData[3] = quadDCount;
+
+
+
+                                lastRecord = data.Items[0].windowtime;
+
+                                noNewRecordCount = 0;
+                            } else {
+                                console.log("no new data");
+
+                                noNewRecordCount++;
+
+                                //let's assume that if we have 3 reads where we're not getting new data, that
+                                //there's is no new data (i.e. no users) so we'll reset
+                                if(noNewRecordCount == 3) {
+                                    uniqueUserCount = 0;
+                                    androidCount = 0;
+                                    iosCount = 0;
+                                    windowsCount = 0;
+                                    otherCount = 0;
+                                    quadACount = 0;
+                                    quadBCount = 0;
+                                    quadCCount = 0;
+                                    quadDCount = 0;
+
+                                    osUsageData[0] = osUsageData[1] = osUsageData[2] = osUsageData[3] = 0;
+                                    quadrantData[0] = quadrantData[1] = quadrantData[2] = quadrantData[3] = 0;
+
+                                    noNewRecordCount = 0;
+                                }
+
+
+                            }
+                        }
+
+                        //we want to keep the total data points for this chart to 180 (3 minutes)
+                        if(dateTime.length == 180) {
+                            dateTime.shift();
+                            usersCounter.shift();
+                            androidUsers.shift();
+                            iOSUsers.shift();
+                            windowsUsers.shift();
+                            otherUsers.shift();
+                            quadA.shift();
+                            quadB.shift();
+                            quadC.shift();
+                            quadD.shift();
+                        }
+
+                        dateTime.push(timeNow());
+                        usersCounter.push(uniqueUserCount);
+                        androidUsers.push(androidCount);
+                        iOSUsers.push(iosCount);
+                        windowsUsers.push(windowsCount);
+                        otherUsers.push(otherCount);
+                        quadA.push(quadACount);
+                        quadB.push(quadBCount);
+                        quadC.push(quadCCount);
+                        quadD.push(quadDCount);
+
+                    }
+
+                    uniqueUsersChart.update();
+                    osChart.update();
+                    quadChart.update();
+
+                });
+
+                setTimeout( function() {
+                    getLatestRecord();
+                }, 1000);
+
+
+            }
+
+            getLatestRecord();
+
+
+            function timeNow() {
+                var d = new Date(),
+                    h = (d.getHours()<10?'0':'') + d.getHours(),
+                    m = (d.getMinutes()<10?'0':'') + d.getMinutes(),
+                    s = (d.getSeconds()<10?'0':'') + d.getSeconds();
+
+                return h + ':' + m + ':' + s;
+            }
+
+        }
+    </script>
+    <script type="text/javascript">
+        window.onload = init;
+    </script>
+
+</head>
+<body>
+    <div class="container">
+        <div class="page-header">
+            <h1>Real-time User Dashboard <small>Amazon Kinesis Analytics Demo</small></h1>
+        </div>
+
+        <!-- Example row of columns -->
+        <div class="row" style="padding-top:30px">
+            <div class="col-md-6">
+                <canvas id="uniqueUsersCanvas" width="200" height="200"></canvas>
+            </div>
+            <div class="col-md-6">
+                <canvas id="osCanvas" width="200" height="200"></canvas>
+            </div>
+            <hr />
+        </div>
+        <div class="row" style="padding-top:100px">
+            <div class="col-md-12">
+                <canvas id="quadrantCanvas" width="800" height="400"></canvas>
+            </div>
+        </div>
+
+        <div class="row" style="padding-bottom: 100px;">
+            <div class="col-md-3" style="padding-left:100px">
+                <img src="fennekin.png" style="width: 150px; height: 150px" />
+            </div>
+            <div class="col-md-3" style="padding-left:85px">
+                <img src="pikachu.png" style="width: 150px; height: 150px" />
+            </div>
+            <div class="col-md-3" style="padding-left:60px">
+                <img src="pachirisu.png" style="width: 150px; height: 150px" />
+            </div>
+            <div class="col-md-3" style="padding-left:40px">
+                <img src="bulbasaur.png" style="width: 150px; height: 150px" />
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+</body>
+</html>
